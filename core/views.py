@@ -12,18 +12,16 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from django.conf import settings
 
-
-
 from .permissions import IsOwnerProfileOrReadOnly
 from .models import User
 from .serializer import UserRegistrationSerializer
 from .utils import Utils
 
-
 class UserProfileListCreateView(ListCreateAPIView):
     queryset=User.objects.all()
     serializer_class=UserRegistrationSerializer
     permission_classes=[IsOwnerProfileOrReadOnly,IsAuthenticated]
+
 
 class RegisterView(generics.GenericAPIView):
     serializer_class = UserRegistrationSerializer
