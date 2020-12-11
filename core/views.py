@@ -45,13 +45,12 @@ class RegisterView(generics.GenericAPIView):
         relative_link = reverse('email-verify')        
         absolute_url = "http://" + current_site + relative_link + "?token=" + str(token)
 
-        email_body = 'Hi dear ' + user.first_name + ',\nUse link below to verify your account: \n\n' + absolute_url
+        email_body = 'Hi ' + user.first_name + ',\nUse link below to verify your account: \n\n' + absolute_url
 
         data = {'to': user.email,
                 'subject': 'Verify account',
                 'body': email_body}
         Utils.send_email(data)
-
         return Response(user_data, status=status.HTTP_201_CREATED)
 
 
@@ -65,11 +64,13 @@ class VerifyEmail(generics.GenericAPIView):
             if(not user.is_active):
                 user.is_active = True
                 user.save()
-            return Response({'success': 'Succesfully activated'}, status=status.HTTP_200_OK)
+                return Response({'success': 'Succesfully activated'}, status=status.HTTP_200_OK)
+            else :
+                return Response({'error': 'Account already activated.'}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.ExpiredSignatureError as identifier:
-            return Response({'error': 'Activation link expired'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Activation link expired'}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.exceptions.DecodeError as identifier:
-            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -86,8 +87,9 @@ class LoginSerializer(TokenObtainPairSerializer):
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
 
+
 class RequestResetPasswordView(generics.GenericAPIView):
-    permission_classes=[IsOwnerProfileOrReadOnly]
+    permission_classes = [IsOwnerProfileOrReadOnly]
     serializer_class = ResetPasswordEmailRequestSerializer
 
     def post(self, request):
@@ -99,20 +101,22 @@ class RequestResetPasswordView(generics.GenericAPIView):
                 user = User.objects.get(email=email)
                 uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
                 token = PasswordResetTokenGenerator().make_token(user)
-                
+
                 current_site = get_current_site(request=request).domain
                 relativeLink = reverse(
                     'password-reset-completion', kwargs={'uidb64': uidb64, 'token': token})
-                absurl = 'http://'+ current_site + relativeLink
-                email_body = 'Hi ' + user.first_name + ', \nUse link below to reset your password  \n' + \
-                    absurl
-                data = {'body': email_body, 'to': user.email,
-                        'subject': 'Reset your passsword'}
+                absurl = 'http://' + current_site + relativeLink
+                email_body = 'Hi ' + user.first_name + \
+                    ', \nUse link below to reset your password  \n' + absurl
+
+                data = {'to': user.email,
+                        'subject': 'Verify account',
+                        'body': email_body}
                 Utils.send_email(data)
-                
+
                 return Response({'success': 'Email sent'}, status=status.HTTP_200_OK)
-            else:        
-                return Response({'error': 'Email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)        
+            else:
+                return Response({'error': 'Email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'error': 'Invalid email.'}, status=status.HTTP_400_BAD_REQUEST)
 

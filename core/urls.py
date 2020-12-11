@@ -6,6 +6,5 @@ urlpatterns = [
     path('email-verify', VerifyEmail.as_view(), name='email-verify'),
     path('login', LoginView.as_view(), name='login'),
     path('password-reset', RequestResetPasswordView.as_view(), name="password-reset"),
-    path('password-reset-completion/<uidb64>/<token>', SetNewPasswordAPIView.as_view(),
-         name='password-reset-completion')
+    path('password-reset-completion/<uidb64>/<token>', SetNewPasswordAPIView.as_view(), name='password-reset-completion')
 ]
