@@ -21,12 +21,6 @@ from .models import User
 from .serializer import UserRegistrationSerializer, ResetPasswordEmailRequestSerializer, SetNewPasswordSerializer
 from .utils import Utils
 
-class UserProfileListCreateView(ListCreateAPIView):
-    queryset=User.objects.all()
-    serializer_class=UserRegistrationSerializer
-    permission_classes=[IsOwnerProfileOrReadOnly,IsAuthenticated]
-
-
 class RegisterView(generics.GenericAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes=[IsOwnerProfileOrReadOnly]
@@ -51,7 +45,7 @@ class RegisterView(generics.GenericAPIView):
                 'subject': 'Verify account',
                 'body': email_body}
         Utils.send_email(data)
-        return Response(user_data, status=status.HTTP_201_CREATED)
+        return Response({'success': 'User registered successfully'}, status=status.HTTP_201_CREATED)
 
 
 class VerifyEmail(generics.GenericAPIView):
@@ -64,12 +58,12 @@ class VerifyEmail(generics.GenericAPIView):
             if(not user.is_active):
                 user.is_active = True
                 user.save()
-                return Response({'success': 'Succesfully activated'}, status=status.HTTP_200_OK)
+                return Response({'success': 'Account succesfully activated'}, status=status.HTTP_200_OK)
             else :
                 return Response({'error': 'Account already activated.'}, status=status.HTTP_401_UNAUTHORIZED)
-        except jwt.ExpiredSignatureError as identifier:
+        except jwt.ExpiredSignatureError:
             return Response({'error': 'Activation link expired'}, status=status.HTTP_401_UNAUTHORIZED)
-        except jwt.exceptions.DecodeError as identifier:
+        except jwt.exceptions.DecodeError:
             return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
@@ -93,7 +87,7 @@ class RequestResetPasswordView(generics.GenericAPIView):
     serializer_class = ResetPasswordEmailRequestSerializer
 
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        self.serializer_class(data=request.data)
         email = request.data.get('email', '')
 
         if not email is None and email != '':
@@ -114,7 +108,7 @@ class RequestResetPasswordView(generics.GenericAPIView):
                         'body': email_body}
                 Utils.send_email(data)
 
-                return Response({'success': 'Email sent'}, status=status.HTTP_200_OK)
+                return Response({'success': 'Email sent successfully.'}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
