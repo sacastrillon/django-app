@@ -37,7 +37,7 @@ class RegisterView(generics.GenericAPIView):
 
         current_site = get_current_site(request).domain
         relative_link = reverse('email-verify')        
-        absolute_url = "http://" + current_site + relative_link + "?token=" + str(token)
+        absolute_url = "https://" + current_site + relative_link + "?token=" + str(token)
 
         email_body = 'Hi ' + user.first_name + ',\nUse link below to verify your account: \n\n' + absolute_url
 
@@ -99,7 +99,7 @@ class RequestResetPasswordView(generics.GenericAPIView):
                 current_site = get_current_site(request=request).domain
                 relativeLink = reverse(
                     'password-reset-completion', kwargs={'uidb64': uidb64, 'token': token})
-                absurl = 'http://' + current_site + relativeLink
+                absurl = 'https://' + current_site + relativeLink
                 email_body = 'Hi ' + user.first_name + \
                     ', \nUse link below to reset your password  \n' + absurl
 
