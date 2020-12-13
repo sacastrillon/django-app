@@ -104,7 +104,7 @@ class RequestResetPasswordView(generics.GenericAPIView):
                     ', \nUse link below to reset your password  \n' + absurl
 
                 data = {'to': user.email,
-                        'subject': 'Verify account',
+                        'subject': 'Reset Password',
                         'body': email_body}
                 Utils.send_email(data)
 
