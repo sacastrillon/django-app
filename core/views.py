@@ -2,12 +2,10 @@ import jwt
 from rest_framework import viewsets, generics, status
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenVerifySerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import Token, RefreshToken
 from rest_framework.response import Response
 from django.core import serializers
-from django.forms.models import model_to_dict
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 from django.conf import settings
@@ -18,38 +16,46 @@ from django.http import HttpResponsePermanentRedirect
 
 from .permissions import IsOwnerProfileOrReadOnly
 from .models import User
-from .serializer import UserRegistrationSerializer, ResetPasswordEmailRequestSerializer, SetNewPasswordSerializer
+from .serializer import UserRegistrationSerializer, ResetPasswordEmailRequestSerializer, SetNewPasswordSerializer, LoginSerializer
 from .utils import Utils
 
 class RegisterView(generics.GenericAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes=[IsOwnerProfileOrReadOnly]
+
     def post(self, request):
-        user = request.data
-        serializer = self.serializer_class(data=user)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        try:
+            user = request.data
+            serializer = self.serializer_class(data=user)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
 
-        user_data = serializer.data
-        user = User.objects.get(email=user_data['email'])
+            user_data = serializer.data
+            user = User.objects.get(email=user_data['email'])
 
-        token = RefreshToken.for_user(user).access_token
+            token = RefreshToken.for_user(user).access_token
 
-        current_site = get_current_site(request).domain
-        relative_link = reverse('email-verify')        
-        absolute_url = "http://" + current_site + relative_link + "?token=" + str(token)
+            current_site = get_current_site(request).domain
+            #relative_link = reverse('email-verify')        
+            #absolute_url = "https://" + current_site + relative_link + "?token=" + str(token)
+            absolute_url = "https://sacastrillon.com/accountVerify?token=" + str(token)            
 
-        email_body = 'Hi ' + user.first_name + ',\nUse link below to verify your account: \n\n' + absolute_url
+            email_body = 'Hi ' + user.first_name + ',\nUse link below to verify your account: \n\n' + absolute_url
 
-        data = {'to': user.email,
-                'subject': 'Verify account',
-                'body': email_body}
-        Utils.send_email(data)
-        return Response({'success': 'User registered successfully'}, status=status.HTTP_201_CREATED)
-
+            data = {'to': user.email,
+                    'subject': 'Verify account',
+                    'body': email_body}
+            Utils.send_email(data)
+            return Response({'status': {'code': status.HTTP_200_OK, 'message': 'User registered successfully. An email has been sent for your account activation.'}}, status=status.HTTP_200_OK)        
+        except Exception as e:
+            if(str(e).__contains__("already exists")):
+                return Response({'status': {'code':status.HTTP_400_BAD_REQUEST, 'message': 'Email already registered.'}}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'status': {'code':status.HTTP_400_BAD_REQUEST, 'message': 'Bad request.'}}, status=status.HTTP_400_BAD_REQUEST)
 
 class VerifyEmail(generics.GenericAPIView):
     permission_classes=[IsOwnerProfileOrReadOnly]
+
     def get(self, request):
         token = request.GET.get('token')
         try:
@@ -58,29 +64,25 @@ class VerifyEmail(generics.GenericAPIView):
             if(not user.is_active):
                 user.is_active = True
                 user.save()
-                return Response({'success': 'Account succesfully activated'}, status=status.HTTP_200_OK)
+                return Response({'status': {'code': status.HTTP_200_OK, 'message': 'Account succesfully activated.'}}, status=status.HTTP_200_OK)
             else :
-                return Response({'error': 'Account already activated.'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'status': {'code': status.HTTP_401_UNAUTHORIZED, 'message': 'Account already activated.'}}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.ExpiredSignatureError:
-            return Response({'error': 'Activation link expired'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'status': {'code': status.HTTP_401_UNAUTHORIZED, 'message': 'Activation link expired.'}}, status=status.HTTP_401_UNAUTHORIZED)
         except jwt.exceptions.DecodeError:
-            return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
-
-
-class LoginSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        del data["access"]
-        del data["refresh"]
-        refresh = self.get_token(self.user)
-        data['user'] = model_to_dict(self.user, fields=('email','first_name', 'last_name', 'date_joined'))
-        data['token'] = str(refresh.access_token)
-        return data
-
+            return Response({'status': {'code': status.HTTP_401_UNAUTHORIZED, 'message': 'Invalid token.'}}, status=status.HTTP_401_UNAUTHORIZED)
 
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
 
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            return Response({'status': {'code': status.HTTP_200_OK, 'message': 'Successfully logged in.'},
+            'data': serializer.validated_data}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({'status': {'code': status.HTTP_404_NOT_FOUND, 'message': 'User not found.'}}, status=status.HTTP_404_NOT_FOUND)
 
 class RequestResetPasswordView(generics.GenericAPIView):
     permission_classes = [IsOwnerProfileOrReadOnly]
@@ -97,9 +99,9 @@ class RequestResetPasswordView(generics.GenericAPIView):
                 token = PasswordResetTokenGenerator().make_token(user)
 
                 current_site = get_current_site(request=request).domain
-                relativeLink = reverse(
-                    'password-reset-completion', kwargs={'uidb64': uidb64, 'token': token})
-                absurl = 'http://' + current_site + relativeLink
+                #relativeLink = reverse('password-reset-completion', kwargs={'uidb64': uidb64, 'token': token})
+                #absurl = 'https://' + current_site + relativeLink
+                absurl = 'https://sacastrillon.com/resetPassword/' + uidb64 + "/" + token
                 email_body = 'Hi ' + user.first_name + \
                     ', \nUse link below to reset your password  \n' + absurl
 
@@ -108,22 +110,27 @@ class RequestResetPasswordView(generics.GenericAPIView):
                         'body': email_body}
                 Utils.send_email(data)
 
-                return Response({'success': 'Email sent successfully.'}, status=status.HTTP_200_OK)
+                return Response({'status': {'code': status.HTTP_200_OK, 'message': 'An email has been sent successfully with reset password link.'}}, status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Email does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'status': {'code': status.HTTP_404_NOT_FOUND, 'message': 'Email does not found.'}}, status=status.HTTP_404_NOT_FOUND)
         else:
-            return Response({'error': 'Invalid email.'}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({'status': {'code':status.HTTP_400_BAD_REQUEST, 'message': 'Invalid email.'}}, status=status.HTTP_400_BAD_REQUEST)
 
 class SetNewPasswordAPIView(generics.GenericAPIView):
     permission_classes=[IsOwnerProfileOrReadOnly]
     serializer_class = SetNewPasswordSerializer
+
     def post(self, request, uidb64, token):
         data = {
             'password': request.data['password'], 
             'token': token, 
             'uidb64': uidb64
         }
-        serializer = self.serializer_class(data=data)
-        serializer.is_valid(raise_exception=True)
-        return Response({'success': 'Password reset successfully'}, status=status.HTTP_200_OK)
+        try:
+            serializer = self.serializer_class(data=data)
+            serializer.is_valid(raise_exception=True)
+            return Response({'status': {'code':status.HTTP_200_OK, 'message': 'Password reset successfully.'}}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response({'status': {'code':status.HTTP_400_BAD_REQUEST, 'message': 'Bad request.'}}, status=status.HTTP_400_BAD_REQUEST)
+
+        
